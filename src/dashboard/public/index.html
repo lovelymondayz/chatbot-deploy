@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chatbot Deploy Dashboard</title>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f172a;color:#e2e8f0}
+.container{max-width:1400px;margin:0 auto;padding:20px}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;padding-bottom:20px;border-bottom:1px solid #1e293b}
+.header h1{font-size:24px;color:#f8fafc}
+.section{background:#1e293b;border-radius:12px;padding:24px;margin-bottom:20px}
+.section h2{font-size:18px;margin-bottom:16px;color:#f1f5f9}
+.form-row{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.form-group{flex:1;min-width:200px}
+.form-group label{display:block;font-size:13px;color:#94a3b8;margin-bottom:6px}
+.form-group input,.form-group textarea{width:100%;padding:10px 14px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-size:14px}
+.btn{padding:10px 20px;border:none;border-radius:6px;font-size:14px;font-weight:500;cursor:pointer}
+.btn-primary{background:#3b82f6;color:white}
+.btn-secondary{background:#334155;color:#e2e8f0}
+.chat-box{background:#0f172a;border-radius:8px;padding:16px;max-height:300px;overflow-y:auto;margin-bottom:12px}
+.msg-user{background:#1e3a5f;padding:8px 12px;border-radius:8px;margin-bottom:8px;margin-left:20%}
+.msg-bot{background:#064e3b;padding:8px 12px;border-radius:8px;margin-bottom:8px;margin-right:20%}
+.empty{text-align:center;padding:60px;color:#64748b}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useCallback}=React;
+const API=window.location.origin.replace(':8099',':8098');
+function App(){
+  const[clients,setClients]=useState([]);
+  const[form,setForm]=useState({name:'',content:''});
+  const[chat,setChat]=useState({cid:'',msgs:[]});
+  const load=useCallback(async()=>{
+    try{const r=await fetch(`${API}/clients`);const d=await r.json();setClients(d.clients||[])}catch(e){}
+  },[]);
+  useEffect(()=>{load();const i=setInterval(load,10000);return()=>clearInterval(i)},[load]);
+  const addClient=async()=>{
+    if(!form.name.trim())return;
+    await fetch(`${API}/clients`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:form.name})});
+    setForm({...form,name:''});setTimeout(load,1000);
+  };
+  const train=async()=>{
+    if(!chat.cid||!form.content.trim())return;
+    await fetch(`${API}/clients/${chat.cid}/train`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:chat.cid,content:form.content})});
+    setForm({...form,content:''});alert('Trained!');
+  };
+  const sendMsg=async()=>{
+    if(!chat.cid||!form.content.trim())return;
+    const msgs=[...chat.msgs,{role:'user',text:form.content}];
+    const r=await fetch(`${API}/clients/${chat.cid}/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:chat.cid,message:form.content})});
+    const d=await r.json();
+    msgs.push({role:'bot',text:d.response});setChat({...chat,msgs});setForm({...form,content:''});
+  };
+  return(
+    <div className="container">
+      <div className="header"><h1>🤖 Chatbot Deploy</h1></div>
+      <div className="section">
+        <h2>Add Client</h2>
+        <div className="form-row">
+          <div className="form-group"><label>Business Name</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></div>
+          <div className="form-group" style={{flex:'0 0 auto',display:'flex',alignItems:'flex-end'}}><button className="btn btn-primary" onClick={addClient}>Add</button></div>
+        </div>
+      </div>
+      <div className="section">
+        <h2>Clients ({clients.length})</h2>
+        {clients.length===0?<div className="empty">No clients yet</div>:
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(250px,1fr))',gap:'12px'}}>
+          {clients.map(c=>(
+            <div key={c.id} style={{background:'#0f172a',padding:'16px',borderRadius:'8px',cursor:'pointer'}} onClick={()=>(setChat({cid:c.id,msgs:[]}),setForm({name:c.name,content:''}))}>
+              <strong>{c.name}</strong><br/><span style={{color:'#94a3b8',fontSize:'12px'}}>{c.id.slice(0,8)}</span>
+            </div>
+          ))}
+        </div>}
+      </div>
+      {chat.cid && (
+        <div className="section">
+          <h2>Chat: {clients.find(c=>c.id===chat.cid)?.name}</h2>
+          <div className="chat-box">
+            {chat.msgs.length===0?<div style={{color:'#64748b'}}>No messages yet</div>:
+            chat.msgs.map((m,i)=>(
+              <div key={i} className={m.role==='user'?'msg-user':'msg-bot'}>{m.text}</div>
+            ))}
+          </div>
+          <div className="form-row">
+            <div className="form-group"><input value={form.content} onChange={e=>setForm({...form,content:e.target.value})} placeholder="Train: paste FAQ text... or chat: ask a question..."/></div>
+            <div className="form-group" style={{flex:'0 0 auto',display:'flex',gap:'8px',alignItems:'flex-end'}}>
+              <button className="btn btn-secondary" onClick={train}>Train</button>
+              <button className="btn btn-primary" onClick={sendMsg}>Send</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

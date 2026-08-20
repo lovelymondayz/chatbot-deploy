@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  chatbot-deploy-api:
+    build: .
+    container_name: chatbot-deploy-api
+    ports:
+      - "8098:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - chroma_data:/app/chroma
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  chatbot-deploy-dashboard:
+    image: nginx:alpine
+    container_name: chatbot-deploy-dashboard
+    ports:
+      - "8099:80"
+    volumes:
+      - ./src/dashboard/public:/usr/share/nginx/html
+    restart: unless-stopped
+
+volumes:
+  chroma_data:
