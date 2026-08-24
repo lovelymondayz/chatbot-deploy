@@ -5,12 +5,12 @@ services:
     build: .
     container_name: chatbot-deploy-api
     ports:
-      - "8098:8000"
+      - "8101:8000"
     env_file:
       - .env
     volumes:
       - ./data:/app/data
-      - chroma_data:/app/chroma
+      - ./output:/app/output
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -22,10 +22,7 @@ services:
     image: nginx:alpine
     container_name: chatbot-deploy-dashboard
     ports:
-      - "8099:80"
+      - "8102:80"
     volumes:
       - ./src/dashboard/public:/usr/share/nginx/html
     restart: unless-stopped
-
-volumes:
-  chroma_data:
