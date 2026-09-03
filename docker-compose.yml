@@ -2,7 +2,9 @@ version: "3.8"
 
 services:
   chatbot-deploy-api:
-    build: .
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: chatbot-deploy-api
     ports:
       - "8101:8000"
